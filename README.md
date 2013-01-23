@@ -7,3 +7,9 @@ usage
 =====
 
 will be written when ready
+
+
+prerequisites
+=============
+
+LUKS, VPS (seedbox), a few remote hosts
