@@ -1,17 +1,19 @@
 require 'openssl'
 require 'socket'
 require 'base64'
+require 'timeout'
 
-hosts = [
-	{ :host => "localhost", :port => 9293 },
-	{ :host => "localhost", :port => 9293 },
-	{ :host => "localhost", :port => 9293 },
-	{ :host => "localhost", :port => 9293 },
-	{ :host => "localhost", :port => 9293 },
-	{ :host => "localhost", :port => 9293 },
-]
-
-pubKey = OpenSSL::PKey::DSA.new(File.read("public.pem"))
+def loadHosts(config)
+	hosts = []
+	IO.readlines(config).each() do |line|
+		host,port,pem = line.strip().split(":")
+		hosts << { :host => host, :port => port, :pem => pem }
+	end
+	hosts
+rescue StandardError => e
+	puts("Syntax error in config file: #{e}")
+	return nil
+end
 
 def readBytes(sock, len)
 	togo = len
@@ -24,7 +26,7 @@ def readBytes(sock, len)
 	arr.join()
 end
 
-def tryHost(host, port, pubKey)
+def doTryHost(host, port, pubKey)
 	sock = TCPSocket.new(host, port)
 	r = Random.new()
 
@@ -46,15 +48,31 @@ def tryHost(host, port, pubKey)
 	sock.close()
 	return f
 rescue StandardError => e
-	puts(e)
 	return false
+end
+
+def tryHost(host, port, pubKey)
+	timeout(10) do
+		doTryHost(host, port, pubKey)
+	end
+rescue Timeout::Error
+	return false
+end
+
+hosts = loadHosts("hosts.conf")
+if hosts == nil or hosts.size() == 0
+	puts("Can't load configuration: hosts.conf")
+	exit(1)
 end
 
 failedHosts = 0
 hosts.each() do |host|
+	pubKey = OpenSSL::PKey::DSA.new(File.read(host[:pem]))
 	failedHosts += 1 if not tryHost(host[:host], host[:port], pubKey)
 end
 
 if failedHosts == hosts.size()
-	puts("suspend luks")
+	`./error.sh`
+else
+	`./ok.sh`
 end
