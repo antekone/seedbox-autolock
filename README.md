@@ -13,3 +13,9 @@ prerequisites
 =============
 
 LUKS, VPS (seedbox), a few remote hosts
+
+
+authors
+=======
+
+antekone
